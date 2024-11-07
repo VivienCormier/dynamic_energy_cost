@@ -15,7 +15,7 @@ async def async_setup(hass: HomeAssistant, config: dict):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up Dynamic Energy Cost from a config entry."""
     _LOGGER.info("Starting setup of Dynamic Energy Cost component, entry.data: %s", entry.data)
-    
+
     try:
         _LOGGER.debug("Attempting to forward Dynamic Energy Cost entry setup to the sensor platform.")
         setup_result = await hass.config_entries.async_forward_entry_setups(entry, ['sensor'])
