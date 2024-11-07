@@ -64,6 +64,7 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
     @property
     def name(self):
         return f"{self._base_name} {self._interval.capitalize()} Energy Cost"
+
     @property
     def device_info(self):
         """Return device information to link this sensor with the integration."""
@@ -104,7 +105,7 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
         attrs['last_energy_reading'] = self._last_energy_reading
         attrs['average_energy_cost'] = self._state / self._cumulative_energy_kwh if self._cumulative_energy_kwh else 0
         return attrs
-    
+
     async def async_added_to_hass(self):
         """Load the last known state and subscribe to updates."""
         await super().async_added_to_hass()
@@ -131,6 +132,7 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
 
     def calculate_next_reset_time(self):
         current_time = now()
+        next_reset = None
         if self._interval == "daily":
             next_reset = current_time.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
         elif self._interval == "weekly":
@@ -150,7 +152,8 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
 
     def schedule_next_reset(self):
         next_reset = self.calculate_next_reset_time()
-        async_track_point_in_time(self.hass, self._reset_meter, next_reset)
+        if next_reset:
+            async_track_point_in_time(self.hass, self._reset_meter, next_reset)
 
     async def _reset_meter(self, _):
         self._state = 0  # Reset the cost to zero
@@ -187,7 +190,7 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
                 self._state = (self._state if self._state is not None else 0) + cost_increment
                 self._cumulative_energy_kwh += energy_difference  # Add to the running total of energy
                 _LOGGER.info(f"Energy cost incremented by {cost_increment} EUR, total cost now {self._state} EUR")
-                
+
             elif self._last_energy_reading is not None and current_energy < self._last_energy_reading:
                 _LOGGER.debug("Possible meter reset or rollback detected; recalculating from new base.")
                 # Optionally reset the cost if you determine it's a complete reset
@@ -220,6 +223,10 @@ class YearlyEnergyCostSensor(BaseEnergyCostSensor):
     def __init__(self, hass, energy_sensor_id, price_sensor_id):
         super().__init__(hass, energy_sensor_id, price_sensor_id, "yearly")
 
+class TotalEnergyCostSensor(BaseEnergyCostSensor):
+    def __init__(self, hass, energy_sensor_id, price_sensor_id):
+        super().__init__(hass, energy_sensor_id, price_sensor_id, "total")
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     energy_sensor_id = config_entry.data.get(ENERGY_SENSOR)
     price_sensor_id = config_entry.data.get(ELECTRICITY_PRICE_SENSOR)
@@ -227,6 +234,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         DailyEnergyCostSensor(hass, energy_sensor_id, price_sensor_id),
         WeeklyEnergyCostSensor(hass, energy_sensor_id, price_sensor_id),
         MonthlyEnergyCostSensor(hass, energy_sensor_id, price_sensor_id),
-        YearlyEnergyCostSensor(hass, energy_sensor_id, price_sensor_id)
+        YearlyEnergyCostSensor(hass, energy_sensor_id, price_sensor_id),
+        TotalEnergyCostSensor(hass, energy_sensor_id, price_sensor_id)
     ]
     async_add_entities(sensors, True)
