@@ -90,6 +90,8 @@ class BaseEnergyCostSensor(RestoreEntity, SensorEntity):
     @property
     def state_class(self):
         """Return the state class of this device, from SensorStateClass."""
+        if self._interval == "total":
+            return SensorStateClass.TOTAL_INCREASING
         return SensorStateClass.TOTAL
 
     @property
